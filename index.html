@@ -305,6 +305,29 @@ function getToken() {
 }
 const TOKEN = getToken();
 
+// Idade da pessoa (em anos), enviada pelo hub no link: ?t=TOKEN&i=IDADE
+// Define em qual etapa o teste começa:
+//   até 5 anos  -> etapa 1 (coelhos)
+//   6 a 12 anos -> etapa 14 (formas geométricas)
+//   13 a 16 anos -> etapa 17
+// Sem idade (ou fora dessas faixas) -> etapa 1.
+function getIdade() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('i') || params.get('idade');
+  if (raw === null || raw === '') return null;
+  const n = parseInt(raw, 10);
+  return isNaN(n) ? null : n;
+}
+const IDADE = getIdade();
+
+function etapaInicialPorIdade(idade) {
+  if (idade === null) return 1;
+  if (idade >= 13 && idade <= 16) return 17;
+  if (idade >= 6 && idade <= 12) return 14;
+  return 1;
+}
+const START_STAGE = etapaInicialPorIdade(IDADE);
+
 async function callFunction(slug, body) {
   try {
     const res = await fetch(FUNCTIONS_BASE + slug, {
@@ -375,7 +398,7 @@ const REGRESSION_RULES = [
 // Registro interno completo: uma entrada por etapa, cada uma com a lista
 // ordenada de cliques (id + ordem + timestamp) daquela etapa.
 // Nada disso é mostrado na tela para quem faz o teste; será lido pelo hub futuramente.
-let currentStage = 1;
+let currentStage = START_STAGE;
 let clicksThisStage = [];
 let allStages = [];
 let testFinished = false;
@@ -481,12 +504,12 @@ function endTest() {
   document.getElementById('end-early-wrap').style.display = 'none';
   document.getElementById('admin-nav').style.display = 'none';
   lockOverlay.style.display = 'flex';
-  concluirSessaoHub({ etapas: allStages });
+  concluirSessaoHub({ etapas: allStages, idade: IDADE, etapaInicial: START_STAGE });
 }
 
 function reset() {
   if (testFinished) return;
-  currentStage = 1;
+  currentStage = START_STAGE;
   clicksThisStage = [];
   allStages = [];
   testFinished = false;
@@ -537,6 +560,7 @@ const startError = document.getElementById('start-error');
 btnStart.addEventListener('click', () => {
   startScreen.style.display = 'none';
   testArea.style.display = 'block';
+  updateStageIndicator();
   updateAdminNav();
   render();
 });
