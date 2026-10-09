@@ -247,8 +247,9 @@
   body { padding: 12px 12px 84px 12px; }
   #stage-indicator { position: absolute; top: 18px; left: 20px; margin: 0; }
   #admin-nav { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; z-index: 5; }
-  #test-area { padding-top: 44px; }
-  #stage-outer { width: min(98vw, calc((100vh - 150px) * 1.5556)); max-width: none; }
+  #test-area { padding-top: 44px; flex: 1; justify-content: center; }
+  #stage-outer { margin: 0 auto; }
+  #stage-outer { width: min(98vw, calc((100vh - 170px) * 1.5556)); max-width: none; }
   #stage-wrap { max-width: none; }
   #lock-overlay {
     position: fixed; inset: 0; z-index: 99999;
@@ -458,16 +459,27 @@ function findRuleForStage(stageNum) {
   return REGRESSION_RULES.find(r => r.failItems.includes(stageNum)) || null;
 }
 
+const BACK_MIN = 7, BACK_MAX = 18;
+
 function goBack() {
   if (testFinished) return;
+  if (currentStage < BACK_MIN || currentStage > BACK_MAX) return;
   const rule = findRuleForStage(currentStage);
-  if (!rule) return;
-  allStages.push({ stage: currentStage, clicks: clicksThisStage, endedEarly: false, jumped: 'backTo' + rule.backTo });
-  registrarEtapa(currentStage, clicksThisStage, { jumped: 'backTo' + rule.backTo });
-  clicksThisStage = [];
-  currentStage = rule.backTo;
-  regressionMode = true;
-  activeRule = rule;
+  if (rule && !regressionMode) {
+    // itens de falha (14, 15, 17, 18): volta para a etapa da regra e entra no modo de regressão
+    allStages.push({ stage: currentStage, clicks: clicksThisStage, endedEarly: false, jumped: 'backTo' + rule.backTo });
+    registrarEtapa(currentStage, clicksThisStage, { jumped: 'backTo' + rule.backTo });
+    clicksThisStage = [];
+    currentStage = rule.backTo;
+    regressionMode = true;
+    activeRule = rule;
+  } else {
+    // demais itens (7 a 18): volta uma etapa
+    allStages.push({ stage: currentStage, clicks: clicksThisStage, endedEarly: false, jumped: 'back' + (currentStage - 1) });
+    registrarEtapa(currentStage, clicksThisStage, { jumped: 'back' + (currentStage - 1) });
+    clicksThisStage = [];
+    currentStage = currentStage - 1;
+  }
   updateStageIndicator();
   updateAdminNav();
   render();
@@ -528,8 +540,7 @@ function updateStageIndicator() {
 }
 
 function updateAdminNav() {
-  const backRule = findRuleForStage(currentStage);
-  const showBack = !!backRule && !testFinished;
+  const showBack = currentStage >= BACK_MIN && currentStage <= BACK_MAX && !testFinished;
   btnBack.style.display = showBack ? 'inline-block' : 'none';
 
   const showSkip = regressionMode && activeRule && currentStage >= activeRule.skipFloor && currentStage <= activeRule.backTo && !testFinished;
